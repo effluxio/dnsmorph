@@ -7,15 +7,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/cavaliercoder/grab"
-	"github.com/fatih/color"
-	"github.com/likexian/whois-go"
-	"github.com/likexian/whois-parser-go"
-	"github.com/mholt/archiver/v3"
-	"github.com/oschwald/maxminddb-golang"
-	"github.com/tcnksm/go-latest"
-	"golang.org/x/net/idna"
-	"golang.org/x/net/publicsuffix"
 	"io"
 	"log"
 	"net"
@@ -29,6 +20,16 @@ import (
 	"text/tabwriter"
 	"time"
 	"unicode"
+
+	"github.com/cavaliercoder/grab"
+	"github.com/fatih/color"
+	"github.com/likexian/whois-go"
+	whoisparser "github.com/likexian/whois-parser-go"
+	"github.com/mholt/archiver/v3"
+	"github.com/oschwald/maxminddb-golang"
+	"github.com/tcnksm/go-latest"
+	"golang.org/x/net/idna"
+	"golang.org/x/net/publicsuffix"
 )
 
 // program version
@@ -64,7 +65,7 @@ var (
 	banner            = `
 ╔╦╗╔╗╔╔═╗╔╦╗╔═╗╦═╗╔═╗╦ ╦
  ║║║║║╚═╗║║║║ ║╠╦╝╠═╝╠═╣
-═╩╝╝╚╝╚═╝╩ ╩╚═╝╩╚═╩  ╩ ╩`  // Calvin S on http://patorjk.com/
+═╩╝╝╚╝╚═╝╩ ╩╚═╝╩╚═╩  ╩ ╩` // Calvin S on http://patorjk.com/
 )
 
 // GeoIPRecord struct
@@ -429,18 +430,18 @@ func validateDomainName(Domain string) bool {
 }
 
 // sanitizes domains inputted into dnsmorph
-func processInput(input string) (sanitizedDomain, tld string) {
+func ProcessInput(input string) (sanitizedDomain, tld string) {
 	if !validateDomainName(input) {
 		r.Printf("\nplease supply a valid Domain\n\n")
 		fmt.Println(utilDescription)
 		newSet.PrintDefaults()
 		os.Exit(1)
 	} else {
-		if *includeSubDomains == false {
+		if !*includeSubDomains {
 			tldPlusOne, _ := publicsuffix.EffectiveTLDPlusOne(input)
 			tld, _ = publicsuffix.PublicSuffix(tldPlusOne)
 			sanitizedDomain = strings.Replace(tldPlusOne, "."+tld, "", -1)
-		} else if *includeSubDomains == true {
+		} else if *includeSubDomains {
 			tld, _ = publicsuffix.PublicSuffix(input)
 			sanitizedDomain = strings.Replace(input, "."+tld, "", -1)
 		}
@@ -453,37 +454,37 @@ func printReport(technique string, results []string, tld string) {
 	out := make(chan Record)
 	w.Init(os.Stdout, 0, 22, 0, '\t', 0)
 	switch {
-	case *resolve == true && *geolocate == true && *whoisflag == true:
+	case *resolve && *geolocate && *whoisflag:
 		runLookups(technique, results, tld, out, *resolve, *geolocate, *whoisflag)
-	case *verbose == true && *resolve == true && *geolocate == true && *whoisflag == true:
+	case *verbose && *resolve && *geolocate && *whoisflag:
 		runLookups(technique, results, tld, out, *resolve, *geolocate, *whoisflag)
-	case *verbose == true && *resolve == true && *whoisflag == true:
+	case *verbose && *resolve && *whoisflag:
 		runLookups(technique, results, tld, out, *resolve, false, *whoisflag)
-	case *verbose == true && *geolocate == true && *whoisflag == true:
+	case *verbose && *geolocate && *whoisflag:
 		runLookups(technique, results, tld, out, false, *geolocate, *whoisflag)
-	case *verbose == true && *whoisflag == true:
+	case *verbose && *whoisflag:
 		runLookups(technique, results, tld, out, false, false, *whoisflag)
-	case *resolve == true && *whoisflag == true:
+	case *resolve && *whoisflag:
 		runLookups(technique, results, tld, out, *resolve, false, *whoisflag)
-	case *geolocate == true && *whoisflag == true:
+	case *geolocate && *whoisflag:
 		runLookups(technique, results, tld, out, false, *geolocate, *whoisflag)
-	case *verbose == true && *resolve == true && *geolocate == true:
+	case *verbose && *resolve && *geolocate:
 		runLookups(technique, results, tld, out, *resolve, *geolocate, false)
-	case *verbose == true && *geolocate == true:
+	case *verbose && *geolocate:
 		runLookups(technique, results, tld, out, false, *geolocate, false)
-	case *verbose == true && *resolve == true:
+	case *verbose && *resolve:
 		runLookups(technique, results, tld, out, *resolve, *geolocate, false)
-	case *resolve == true && *geolocate == true:
+	case *resolve && *geolocate:
 		runLookups(technique, results, tld, out, *resolve, *geolocate, false)
-	case *geolocate == true:
+	case *geolocate:
 		runLookups(technique, results, tld, out, false, *geolocate, false)
-	case *resolve == true:
+	case *resolve:
 		runLookups(technique, results, tld, out, *resolve, *geolocate, false)
-	case *whoisflag == true:
+	case *whoisflag:
 		runLookups(technique, results, tld, out, false, false, *whoisflag)
-	case *verbose == true:
+	case *verbose:
 		for _, result := range results {
-			if (*idn == true && technique == "homograph") {
+			if *idn && technique == "homograph" {
 				idn_result, err := idna.Lookup.ToASCII(result)
 				if err == nil {
 					printResults(w, technique, idn_result, tld)
@@ -494,7 +495,7 @@ func printReport(technique string, results []string, tld string) {
 		}
 	case *verbose == false && *resolve == false:
 		for _, result := range results {
-			if (*idn == true && technique == "homograph") {
+			if *idn && technique == "homograph" {
 				idn_result, err := idna.Lookup.ToASCII(result)
 				if err == nil {
 					fmt.Println(idn_result + "." + tld)
@@ -557,19 +558,19 @@ func outputToFile(targets []string) {
 	out := make(chan Record)
 	results := [][]string{}
 	for _, target := range targets {
-		sanitizedDomain, tld := processInput(target)
+		sanitizedDomain, tld := ProcessInput(target)
 		for _, t := range []Target{
-			{"transposition", sanitizedDomain, transpositionAttack},
-			{"addition", sanitizedDomain, additionAttack},
-			{"vowelswap", sanitizedDomain, vowelswapAttack},
-			{"subdomain", sanitizedDomain, subdomainAttack},
-			{"replacement", sanitizedDomain, replacementAttack},
-			{"repetition", sanitizedDomain, repetitionAttack},
-			{"omission", sanitizedDomain, omissionAttack},
-			{"hyphenation", sanitizedDomain, hyphenationAttack},
-			{"bitsquatting", sanitizedDomain, bitsquattingAttack},
-			{"homograph", sanitizedDomain, homographAttack},
-			{"doppelganger", sanitizedDomain, doppelgangerAttack}} {
+			{"transposition", sanitizedDomain, TranspositionAttack},
+			{"addition", sanitizedDomain, AdditionAttack},
+			{"vowelswap", sanitizedDomain, VowelswapAttack},
+			{"subdomain", sanitizedDomain, SubdomainAttack},
+			{"replacement", sanitizedDomain, ReplacementAttack},
+			{"repetition", sanitizedDomain, RepetitionAttack},
+			{"omission", sanitizedDomain, OmissionAttack},
+			{"hyphenation", sanitizedDomain, HyphenationAttack},
+			{"bitsquatting", sanitizedDomain, BitsquattingAttack},
+			{"homograph", sanitizedDomain, HomographAttack},
+			{"doppelganger", sanitizedDomain, DoppelgangerAttack}} {
 			for _, r := range t.Function(t.TargetDomain) {
 				results = append(results, []string{r + "." + tld, t.Technique})
 			}
@@ -621,29 +622,29 @@ func outputToFile(targets []string) {
 }
 
 // helper function to specify permutation attacks to be performed
-func runPermutations(targets []string) {
+func RunPermutations(targets []string) {
 	if *outcsv != false || *outjson != false {
 		outputToFile(targets)
 	} else {
 		for _, target := range targets {
-			sanitizedDomain, tld := processInput(target)
-			printReport("addition", additionAttack(sanitizedDomain), tld)
-			printReport("omission", omissionAttack(sanitizedDomain), tld)
-			printReport("homograph", homographAttack(sanitizedDomain), tld)
-			printReport("subdomain", subdomainAttack(sanitizedDomain), tld)
-			printReport("vowel swap", vowelswapAttack(sanitizedDomain), tld)
-			printReport("repetition", repetitionAttack(sanitizedDomain), tld)
-			printReport("hyphenation", hyphenationAttack(sanitizedDomain), tld)
-			printReport("replacement", replacementAttack(sanitizedDomain), tld)
-			printReport("bitsquatting", bitsquattingAttack(sanitizedDomain), tld)
-			printReport("transposition", transpositionAttack(sanitizedDomain), tld)
-			printReport("doppelganger", doppelgangerAttack(sanitizedDomain), tld)
+			sanitizedDomain, tld := ProcessInput(target)
+			printReport("addition", AdditionAttack(sanitizedDomain), tld)
+			printReport("omission", OmissionAttack(sanitizedDomain), tld)
+			printReport("homograph", HomographAttack(sanitizedDomain), tld)
+			printReport("subdomain", SubdomainAttack(sanitizedDomain), tld)
+			printReport("vowel swap", VowelswapAttack(sanitizedDomain), tld)
+			printReport("repetition", RepetitionAttack(sanitizedDomain), tld)
+			printReport("hyphenation", HyphenationAttack(sanitizedDomain), tld)
+			printReport("replacement", ReplacementAttack(sanitizedDomain), tld)
+			printReport("bitsquatting", BitsquattingAttack(sanitizedDomain), tld)
+			printReport("transposition", TranspositionAttack(sanitizedDomain), tld)
+			printReport("doppelganger", DoppelgangerAttack(sanitizedDomain), tld)
 		}
 	}
 }
 
 // performs an addition attack adding a single character to the domain
-func additionAttack(domain string) []string {
+func AdditionAttack(domain string) []string {
 	results := []string{}
 
 	for i := 97; i < 123; i++ {
@@ -653,7 +654,7 @@ func additionAttack(domain string) []string {
 }
 
 // performs a vowel swap attack
-func vowelswapAttack(domain string) []string {
+func VowelswapAttack(domain string) []string {
 	results := []string{}
 	vowels := []rune{'a', 'e', 'i', 'o', 'u', 'y'}
 	runes := []rune(domain)
@@ -673,7 +674,7 @@ func vowelswapAttack(domain string) []string {
 }
 
 // performs a transposition attack swapping adjacent characters in the domain
-func transpositionAttack(domain string) []string {
+func TranspositionAttack(domain string) []string {
 	results := []string{}
 	for i := 0; i < len(domain)-1; i++ {
 		if domain[i+1] != domain[i] {
@@ -685,7 +686,7 @@ func transpositionAttack(domain string) []string {
 
 // performs a subdomain attack by inserting dots between characters, effectively turning the
 // domain in a subdomain
-func subdomainAttack(domain string) []string {
+func SubdomainAttack(domain string) []string {
 	results := []string{}
 	runes := []rune(domain)
 
@@ -698,7 +699,7 @@ func subdomainAttack(domain string) []string {
 }
 
 // performs a replacement attack simulating a user pressing the wrong keys
-func replacementAttack(domain string) []string {
+func ReplacementAttack(domain string) []string {
 	results := []string{}
 	keyboards := make([]map[rune]string, 0)
 	count := make(map[string]int)
@@ -735,7 +736,7 @@ func replacementAttack(domain string) []string {
 }
 
 // performs a repetition attack simulating a user pressing a key twice
-func repetitionAttack(domain string) []string {
+func RepetitionAttack(domain string) []string {
 	results := []string{}
 	count := make(map[string]int)
 	for i, c := range domain {
@@ -752,7 +753,7 @@ func repetitionAttack(domain string) []string {
 }
 
 // performs an omission attack removing characters across the domain name
-func omissionAttack(domain string) []string {
+func OmissionAttack(domain string) []string {
 	results := []string{}
 	for i := range domain {
 		results = append(results, fmt.Sprintf("%s%s", domain[:i], domain[i+1:]))
@@ -761,7 +762,7 @@ func omissionAttack(domain string) []string {
 }
 
 // performs a hyphenation attack adding hyphens between characters
-func hyphenationAttack(domain string) []string {
+func HyphenationAttack(domain string) []string {
 	results := []string{}
 	for i := 1; i < len(domain); i++ {
 		if (rune(domain[i]) != '-' && rune(domain[i]) != '.') && (rune(domain[i-1]) != '-' && rune(domain[i-1]) != '.') {
@@ -772,11 +773,11 @@ func hyphenationAttack(domain string) []string {
 }
 
 // performs a doppelganger attack by removing hypens in subdomain
-func doppelgangerAttack(domain string) []string {
+func DoppelgangerAttack(domain string) []string {
 	results := []string{}
 
-	for i := len(domain)-1; i > 0; i-- {
-		if (rune(domain[i]) == '.' || rune(domain[i]) == '-') {
+	for i := len(domain) - 1; i > 0; i-- {
+		if rune(domain[i]) == '.' || rune(domain[i]) == '-' {
 			results = append(results, fmt.Sprintf("%s%s", domain[:i], domain[i+1:]))
 		}
 	}
@@ -784,7 +785,7 @@ func doppelgangerAttack(domain string) []string {
 }
 
 // performs a bitsquat permutation attack
-func bitsquattingAttack(domain string) []string {
+func BitsquattingAttack(domain string) []string {
 
 	results := []string{}
 	masks := []int32{1, 2, 4, 8, 16, 32, 64, 128}
@@ -802,7 +803,7 @@ func bitsquattingAttack(domain string) []string {
 }
 
 // performs a homograph permutation attack
-func homographAttack(domain string) []string {
+func HomographAttack(domain string) []string {
 	// set local variables
 	glyphs := map[rune][]rune{
 		'a': {'à', 'á', 'â', 'ã', 'ä', 'å', 'ɑ', 'а', 'ạ', 'ǎ', 'ă', 'ȧ', 'α', 'ａ'},
@@ -931,9 +932,9 @@ func main() {
 	setup()
 
 	if *domain != "" && *list == "" {
-		sanitizedDomain, tld := processInput(*domain)
+		sanitizedDomain, tld := ProcessInput(*domain)
 		targets := []string{sanitizedDomain + "." + tld}
-		runPermutations(targets)
+		RunPermutations(targets)
 	}
 
 	if *list != "" && *domain == "" {
@@ -946,9 +947,9 @@ func main() {
 
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
-			sanitizedDomain, tld := processInput(scanner.Text())
+			sanitizedDomain, tld := ProcessInput(scanner.Text())
 			targets = append(targets, sanitizedDomain+"."+tld)
 		}
-		runPermutations(targets)
+		RunPermutations(targets)
 	}
 }

@@ -21,7 +21,7 @@ func TestCountChar(t *testing.T) {
 }
 
 func TestProcessInput(t *testing.T) {
-	sanitizedInput, tld := processInput("subdomain.test.co.uk")
+	sanitizedInput, tld := ProcessInput("subdomain.test.co.uk")
 	if sanitizedInput != "test" && tld != "co.uk" {
 		t.Error("expected 'test' and 'co.uk', got", sanitizedInput, tld)
 	}
@@ -44,17 +44,17 @@ type testcase struct {
 }
 
 var tests = []testcase{
-	{"test", transpositionAttack, 3, "etst"},
-	{"test", additionAttack, 26, "testa"},
-	{"test", vowelswapAttack, 5, "tast"},
-	{"test", subdomainAttack, 3, "t.est"},
-	{"test", replacementAttack, 31, "6est"},
-	{"test", repetitionAttack, 4, "ttest"},
-	{"test", omissionAttack, 4, "est"},
-	{"test", hyphenationAttack, 3, "t-est"},
-	{"test", bitsquattingAttack, 31, "test"},
-	{"test", homographAttack, 27, "τest"},
-	{"test.test", doppelgangerAttack, 1, "testtest"},
+	{"test", TranspositionAttack, 3, "etst"},
+	{"test", AdditionAttack, 26, "testa"},
+	{"test", VowelswapAttack, 5, "tast"},
+	{"test", SubdomainAttack, 3, "t.est"},
+	{"test", ReplacementAttack, 31, "6est"},
+	{"test", RepetitionAttack, 4, "ttest"},
+	{"test", OmissionAttack, 4, "est"},
+	{"test", HyphenationAttack, 3, "t-est"},
+	{"test", BitsquattingAttack, 31, "test"},
+	{"test", HomographAttack, 27, "τest"},
+	{"test.test", DoppelgangerAttack, 1, "testtest"},
 }
 
 func TestAttackResults(t *testing.T) {
